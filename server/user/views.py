@@ -5,6 +5,8 @@ from rest_framework import exceptions as rest_exceptions, response, decorators a
 from rest_framework_simplejwt import tokens, views as jwt_views, serializers as jwt_serializers, exceptions as jwt_exceptions
 from user import serializers, models
 import stripe
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 prices = {
@@ -24,7 +26,11 @@ def get_user_tokens(user):
         "access_token": str(refresh.access_token)
     }
 
-
+@swagger_auto_schema(
+    method='post',
+    operation_id='login',
+    request_body=serializers.LoginSerializer,
+)
 @rest_decorators.api_view(["POST"])
 @rest_decorators.permission_classes([])
 def loginView(request):
@@ -63,7 +69,11 @@ def loginView(request):
     raise rest_exceptions.AuthenticationFailed(
         "Email or Password is incorrect!")
 
-
+@swagger_auto_schema(
+    method='post',
+    operation_id='register',
+    request_body=serializers.RegistrationSerializer,
+)
 @rest_decorators.api_view(["POST"])
 @rest_decorators.permission_classes([])
 def registerView(request):
@@ -77,6 +87,10 @@ def registerView(request):
     return rest_exceptions.AuthenticationFailed("Invalid credentials!")
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_id='logout',
+)
 @rest_decorators.api_view(['POST'])
 @rest_decorators.permission_classes([rest_permissions.IsAuthenticated])
 def logoutView(request):
@@ -113,6 +127,10 @@ class CookieTokenRefreshSerializer(jwt_serializers.TokenRefreshSerializer):
 class CookieTokenRefreshView(jwt_views.TokenRefreshView):
     serializer_class = CookieTokenRefreshSerializer
 
+
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
     def finalize_response(self, request, response, *args, **kwargs):
         if response.data.get("refresh"):
             response.set_cookie(
@@ -128,7 +146,10 @@ class CookieTokenRefreshView(jwt_views.TokenRefreshView):
         response["X-CSRFToken"] = request.COOKIES.get("csrftoken")
         return super().finalize_response(request, response, *args, **kwargs)
 
-
+@swagger_auto_schema(
+    method='get',
+    operation_id='me',
+)
 @rest_decorators.api_view(["GET"])
 @rest_decorators.permission_classes([rest_permissions.IsAuthenticated])
 def user(request):
@@ -140,7 +161,10 @@ def user(request):
     serializer = serializers.UserSerializer(user)
     return response.Response(serializer.data)
 
-
+@swagger_auto_schema(
+    method='get',
+    operation_id='subscriptions list',
+)
 @rest_decorators.api_view(["GET"])
 @rest_decorators.permission_classes([rest_permissions.IsAuthenticated])
 def getSubscriptions(request):
