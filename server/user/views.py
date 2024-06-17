@@ -1,8 +1,10 @@
 from django.contrib.auth import authenticate
 from django.conf import settings
 from django.middleware import csrf
-from rest_framework import exceptions as rest_exceptions, response, decorators as rest_decorators, permissions as rest_permissions
-from rest_framework_simplejwt import tokens, views as jwt_views, serializers as jwt_serializers, exceptions as jwt_exceptions
+from rest_framework import exceptions as rest_exceptions, response, decorators as rest_decorators, \
+    permissions as rest_permissions
+from rest_framework_simplejwt import tokens, views as jwt_views, serializers as jwt_serializers, \
+    exceptions as jwt_exceptions
 from user import serializers, models
 import stripe
 from drf_yasg.utils import swagger_auto_schema
@@ -26,10 +28,12 @@ def get_user_tokens(user):
         "access_token": str(refresh.access_token)
     }
 
+
 @swagger_auto_schema(
     method='post',
     operation_id='login',
     request_body=serializers.LoginSerializer,
+    responses={200: openapi.Response('Tokens', serializers.LoginSerializer)}
 )
 @rest_decorators.api_view(["POST"])
 @rest_decorators.permission_classes([])
@@ -69,10 +73,12 @@ def loginView(request):
     raise rest_exceptions.AuthenticationFailed(
         "Email or Password is incorrect!")
 
+
 @swagger_auto_schema(
     method='post',
     operation_id='register',
     request_body=serializers.RegistrationSerializer,
+    responses={200: openapi.Response('Registration successful')}
 )
 @rest_decorators.api_view(["POST"])
 @rest_decorators.permission_classes([])
@@ -90,6 +96,7 @@ def registerView(request):
 @swagger_auto_schema(
     method='post',
     operation_id='logout',
+    responses={200: 'Logged out successfully'}
 )
 @rest_decorators.api_view(['POST'])
 @rest_decorators.permission_classes([rest_permissions.IsAuthenticated])
@@ -105,8 +112,8 @@ def logoutView(request):
         res.delete_cookie(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
         res.delete_cookie("X-CSRFToken")
         res.delete_cookie("csrftoken")
-        res["X-CSRFToken"]=None
-        
+        res["X-CSRFToken"] = None
+
         return res
     except:
         raise rest_exceptions.ParseError("Invalid token")
@@ -127,7 +134,11 @@ class CookieTokenRefreshSerializer(jwt_serializers.TokenRefreshSerializer):
 class CookieTokenRefreshView(jwt_views.TokenRefreshView):
     serializer_class = CookieTokenRefreshSerializer
 
-
+    @swagger_auto_schema(
+        operation_id='refresh_token',
+        request_body=CookieTokenRefreshSerializer,
+        responses={200: 'Token refreshed successfully'}
+    )
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
 
@@ -146,9 +157,11 @@ class CookieTokenRefreshView(jwt_views.TokenRefreshView):
         response["X-CSRFToken"] = request.COOKIES.get("csrftoken")
         return super().finalize_response(request, response, *args, **kwargs)
 
+
 @swagger_auto_schema(
     method='get',
-    operation_id='me',
+    operation_id='get_user',
+    responses={200: serializers.UserSerializer}
 )
 @rest_decorators.api_view(["GET"])
 @rest_decorators.permission_classes([rest_permissions.IsAuthenticated])
@@ -156,14 +169,16 @@ def user(request):
     try:
         user = models.User.objects.get(id=request.user.id)
     except models.User.DoesNotExist:
-        return response.Response(status_code=404)
+        return response.Response(status=404)
 
     serializer = serializers.UserSerializer(user)
     return response.Response(serializer.data)
 
+
 @swagger_auto_schema(
     method='get',
-    operation_id='subscriptions list',
+    operation_id='get_subscriptions',
+    responses={200: openapi.Response('Subscriptions retrieved')}
 )
 @rest_decorators.api_view(["GET"])
 @rest_decorators.permission_classes([rest_permissions.IsAuthenticated])
@@ -171,7 +186,7 @@ def getSubscriptions(request):
     try:
         user = models.User.objects.get(id=request.user.id)
     except models.User.DoesNotExist:
-        return response.Response(status_code=404)
+        return response.Response(status=404)
 
     subscriptions = []
     customer = stripe.Customer.search(query=f'email:"{user.email}"')
